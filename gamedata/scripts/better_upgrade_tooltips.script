@@ -586,6 +586,10 @@ function durability_upgrade_to_condition_loss(change)
 	return (-10)
 end
 
+function ammo_mag_size_to_ammo_mag_size(change)
+	return change
+end
+
 local prop_name_to_param = {
 -- weapons
 prop_dispersion = {param_name = {"fire_dispersion_base"}, functor = {"dispersion_change_to_accuracy_percent_change"}},
@@ -595,6 +599,7 @@ prop_reliability = {param_name = {"condition_shot_dec"}, functor = {"cond_shot_d
 prop_bullet_speed = {param_name = {"bullet_speed"}, functor = {"bullet_speed_to_bullet_speed"}},
 prop_rpm = {param_name = {"rpm"}, functor = {"rpm_to_rpm"}},
 prop_weight = {param_name = {"inv_weight"}, functor = {"weight_to_weight"}},
+prop_mag_size = {param_name = {"ammo_mag_size"}, functor = {"ammo_mag_size_to_ammo_mag_size"}},
 
 -- outfits
 prop_electro = {param_name = {"shock_protection"}, functor = {"shock_protection_to_percent_change"}},
@@ -625,6 +630,7 @@ condition_shot_dec = "prop_reliability",
 bullet_speed = "prop_bullet_speed",
 rpm = "prop_rpm",
 inv_weight = "prop_weight",
+ammo_mag_size = "prop_mag_size",
 
 -- outfits
 shock_protection = "prop_electro",
@@ -635,7 +641,8 @@ wound_protection = "prop_damage",
 bleeding_restore_speed = "prop_restore_bleeding",
 health_restore_speed = "prop_restore_health",
 radiation_protection = "prop_radio",
-fire_wound_protection = "prop_armor"
+fire_wound_protection = "prop_armor",
+power_restore_speed = "prop_power"
 }
 
 inventory_upgrades.property_functor_a = function(param1, name)

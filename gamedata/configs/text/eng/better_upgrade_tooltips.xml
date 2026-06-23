@@ -14,4 +14,8 @@
 		<text>Condition Loss</text>
 	</string>
 	
+	<string id="ui_upgrade_mag_size">
+		<text>Mag Size</text>
+	</string>
+	
 </string_table>
