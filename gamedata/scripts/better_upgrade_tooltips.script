@@ -738,7 +738,7 @@ inventory_upgrades.property_functor_a = function(param1, name)
 		printf("selected_obj_section is %s", selected_obj_section)
 		local selected_obj_id_arg = selected_obj_id
 		local percent_change = better_upgrade_tooltips[prop_name_to_param[name].functor[final_functor_index]](stat_change, selected_obj_section or "wpn_pm", selected_obj_id_arg)
-		value = percent_change
+		value = percent_change or ""
 		
 		--value = math.floor((10*value)+0.5) / 10
 		
@@ -850,7 +850,7 @@ end
 
 local original_property_functor_b = inventory_upgrades.property_functor_b
 inventory_upgrades.property_functor_b = function( param1, name )
-	local original_return = original_property_functor_b( param1, name )
+	local original_return = original_property_functor_b( param1, name ) or ""
 	--printf("-property_functor_b(%s,%s)",param1,name)
 	if string.find(original_return, "%%c%[0,255,255,255%]") then
 		-- original_return = "%c[0,255,255,255]" .. original_return
@@ -865,7 +865,7 @@ end
 
 local original_property_functor_c = inventory_upgrades.property_functor_c
 inventory_upgrades.property_functor_c = function( param1, name )
-	local original_return = original_property_functor_c( param1, name )
+	local original_return = original_property_functor_c( param1, name ) or ""
 	--printf("-property_functor_c(%s,%s)",param1,name)
 	if string.find(original_return, "%%c%[0,255,255,255%]") then
 		-- original_return = "%c[0,255,255,255]" .. original_return
