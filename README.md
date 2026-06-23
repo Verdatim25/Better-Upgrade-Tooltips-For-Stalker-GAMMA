@@ -11,7 +11,7 @@ Changes the tool tip of upgrades to be accurate to the stat changes shown AND sh
 Weapon Stats:  
 Accuracy -- Shows percent change of 'accuracy' stat.  
 Handling -- Shows percent change of 'handling' stat.  
-Recoil -- Shows change of the 'recoil' stat. SEE NOTES BELOW.  
+Recoil Control -- Shows change of the 'recoil control' stat. SEE NOTES BELOW.  
 Reliability -- Shows percent change of the 'reliability' stat.  
 Muzzle Velocity -- Shows velocity change of the 'Muzzle Velocity' stat (in m/s).  
 RPM -- Shows RPM change of the 'RPM' stat (in RPM, rounds per minute).  
@@ -32,4 +32,11 @@ Condition Loss -- Shows percent change of 'Condition Loss' stat. In base GAMMA, 
 
 ## MCM
 In the MCM you can change what the text colour for the upgrade is, and optionally, you can change the negative upgrade text colour as well. By default, both settings are on and positive is green while negative is red.
+
+# NOTES
+## RECOIL CONTROL:  
+Recoil Control as a stat in game is weird. The formula for finding it boils down to 1/zoom_cam_dispersion * some_constant. This formula, unlike pretty much every other stat, is not linear. So the change of the recoil stat actually depends on the current value of the recoil stat. i.e. The differentiation is not a constant.  
+In practice, this means the upgrade tool tip will show *different values* depending on how many upgrades you have on. THIS IS NOT A BUG, JUST A WEIRD QUIRK WITH HOW THE STAT IS CALCULATED, THE RECOIL CONTROL YOU GAIN IS ACCURATE.  
+## BURN RES:
+Burn Res in GAMMA 0.9.5 is broken in the stat card for outfits and helmets. It will show properly in the inventory defence section at the bottom but not on the stat card. DO NOT TELL ME ABOUT BURN RES NOT APPLYING PROPERLY. IT IS: ITS JUST NOT SHOWING IN THE OUTFIT STAT CARD.  
 
