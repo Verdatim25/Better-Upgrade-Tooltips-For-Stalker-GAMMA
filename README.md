@@ -7,7 +7,7 @@ Showcase: https://youtu.be/x42r57RydZQ
 I will not be providing support outside of gamma.
 
 # Description
-Changes the tool tip of upgrades to be accurate to the stat changes shown AND shows hidden stat changes. Also allows configuration of positive and negative upgrade stats.
+Changes the tool tip of upgrades to be accurate to the stat changes shown AND shows hidden stat changes. Also allows configuration of the colour of positive and negative upgrade stats.
 
 ## Explanation Of Stats
 Weapon Stats:  
