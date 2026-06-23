@@ -1,6 +1,8 @@
 # Better-Upgrade-Tooltips-For-Stalker-GAMMA
 Better Upgrade Tooltips For Stalker GAMMA.
 
+Showcase: https://youtu.be/x42r57RydZQ
+
 # FOR GAMMA ONLY
 I will not be providing support outside of gamma.
 
