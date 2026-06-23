@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+
+<string_table>
+
+	<string id="ui_mcm_menu_better_upgrade_tooltips">
+		<text>Better Upgrade Tooltips</text>
+	</string>
+	<string id="ui_mcm_menu_better_upgrade_tooltips_title">
+		<text>Better Upgrade Tooltips</text>
+	</string>
+	
+	
+	<string id="ui_mcm_better_upgrade_tooltips_change_text_colour">
+		<text>Change Upgrade Text Colour</text>
+	</string>
+	<string id="ui_mcm_better_upgrade_tooltips_change_text_colour_desc">
+		<text>Change upgrade text colour when the cursor is hovered over the upgrade.</text>
+	</string>
+	
+	<string id="ui_mcm_better_upgrade_tooltips_alpha">
+		<text>Alpha</text>
+	</string>
+	<string id="ui_mcm_better_upgrade_tooltips_red">
+		<text>Red</text>
+	</string>
+	<string id="ui_mcm_better_upgrade_tooltips_green">
+		<text>Green</text>
+	</string>
+	<string id="ui_mcm_better_upgrade_tooltips_blue">
+		<text>Blue</text>
+	</string>
+	
+	
+	<string id="ui_mcm_better_upgrade_tooltips_change_text_colour_neg">
+		<text>Change Negative Upgrade Text Colour</text>
+	</string>
+	<string id="ui_mcm_better_upgrade_tooltips_change_text_colour_neg_desc">
+		<text>Change upgrade text colour when the cursor is hovered over the upgrade. This colour is used if the property is negative.</text>
+	</string>
+	
+	<string id="ui_mcm_better_upgrade_tooltips_alpha_neg">
+		<text>Alpha</text>
+	</string>
+	<string id="ui_mcm_better_upgrade_tooltips_red_neg">
+		<text>Red</text>
+	</string>
+	<string id="ui_mcm_better_upgrade_tooltips_green_neg">
+		<text>Green</text>
+	</string>
+	<string id="ui_mcm_better_upgrade_tooltips_blue_neg">
+		<text>Blue</text>
+	</string>
+
+	
+</string_table>

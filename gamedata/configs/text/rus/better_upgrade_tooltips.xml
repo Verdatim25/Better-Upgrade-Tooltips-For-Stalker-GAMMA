@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+
+<string_table>
+
+	<string id="ui_upgrade_recoil">
+		<text>Контроль отдачи</text>
+	</string>
+	
+	<string id="ui_upgrade_bullet_speed">
+		<text>Дульная скорость</text>
+	</string>
+	
+</string_table>

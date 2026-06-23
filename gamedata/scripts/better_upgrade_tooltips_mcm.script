@@ -1,0 +1,115 @@
+function on_mcm_load()
+  op = { 
+     id = "better_upgrade_tooltips", sh = true, gr =
+      {
+        { id = "better_upgrade_tooltips_title", type = "slide", text = "ui_mcm_menu_better_upgrade_tooltips_title", link = "ui_options_slider_player", size = {512, 50}, spacing = 20 },
+		
+		{ id = "change_text_colour", type = "check", val = 1, def = true, ui_hook_functor = {better_upgrade_tooltips_mcm.register_text}},
+		{ id = "alpha", type = "track", val = 2, def = 255, min = 0, max = 255, step = 1, on_selection_functor = {better_upgrade_tooltips_mcm.on_channel_change, "alpha"}},
+		{ id = "red", type = "track", val = 2, def = 65, min = 0, max = 255, step = 1, on_selection_functor = {better_upgrade_tooltips_mcm.on_channel_change, "red"}},
+		{ id = "green", type = "track", val = 2, def = 255, min = 0, max = 255, step = 1, on_selection_functor = {better_upgrade_tooltips_mcm.on_channel_change, "green"}},
+		{ id = "blue", type = "track", val = 2, def = 65, min = 0, max = 255, step = 1, on_selection_functor = {better_upgrade_tooltips_mcm.on_channel_change, "blue"}},
+		
+		{ id = "change_text_colour_neg", type = "check", val = 1, def = true, ui_hook_functor = {better_upgrade_tooltips_mcm.register_text_neg}},
+		{ id = "alpha_neg", type = "track", val = 2, def = 255, min = 0, max = 255, step = 1, on_selection_functor = {better_upgrade_tooltips_mcm.on_channel_change_neg, "alpha"}},
+		{ id = "red_neg", type = "track", val = 2, def = 255, min = 0, max = 255, step = 1, on_selection_functor = {better_upgrade_tooltips_mcm.on_channel_change_neg, "red"}},
+		{ id = "green_neg", type = "track", val = 2, def = 65, min = 0, max = 255, step = 1, on_selection_functor = {better_upgrade_tooltips_mcm.on_channel_change_neg, "green"}},
+		{ id = "blue_neg", type = "track", val = 2, def = 65, min = 0, max = 255, step = 1, on_selection_functor = {better_upgrade_tooltips_mcm.on_channel_change_neg, "blue"}},
+
+      }
+    }
+  return op
+end
+
+local colour_table = {}
+
+local test_text
+
+xml = CScriptXmlInit()
+xml:ParseFile("ui_mcm.xml")
+
+function on_channel_change(path, opt, value, attrs)
+	-- printf("types: %s, %s, %s, %s", type(path), type(opt), type(value), type(attrs))
+	-- print_r(value)
+	-- print_r(attrs)
+	-- printf("%s, %s, %s, %s ", path, opt, value, attrs)
+	-- results below
+		-- types: string, string, number, table
+		-- 255
+		-- [max] => 255
+		-- [step] => 1
+		-- [on_selection_functor] => table: 0x14d3a450 {
+		  -- [1] => function: 0x11e54bc0
+		  -- [2] => blue
+		-- }
+		-- [val] => 2
+		-- [type] => track
+		-- [min] => 0
+		-- [def] => 255
+		-- [id] => blue
+		--
+		-- better_upgrade_tooltips, blue, 255, table: 0x138f2410 
+	local channel = attrs.on_selection_functor[2]
+	colour_table[channel] = value
+	set_text_colour()
+end
+
+function register_text(anchor, handlers, attrs, flags)
+	test_text = xml:InitTextWnd("elements:desc", anchor)
+	test_text:SetText("PREVIEW TEXT")
+	test_text:SetWndPos(vector2():set(400, 0))
+	set_text_colour()
+end
+
+function set_text_colour()
+	local alpha = colour_table.alpha or ui_mcm.get("better_upgrade_tooltips/alpha") or 255
+	local red = colour_table.red or ui_mcm.get("better_upgrade_tooltips/red") or 255
+	local green = colour_table.green or ui_mcm.get("better_upgrade_tooltips/green") or 255
+	local blue = colour_table.blue or ui_mcm.get("better_upgrade_tooltips/blue") or 255
+	test_text:SetTextColor(GetARGB(alpha, red, green, blue))
+end
+
+local colour_table_neg = {}
+
+local test_text_neg
+
+function on_channel_change_neg(path, opt, value, attrs)
+	-- printf("types: %s, %s, %s, %s", type(path), type(opt), type(value), type(attrs))
+	-- print_r(value)
+	-- print_r(attrs)
+	-- printf("%s, %s, %s, %s ", path, opt, value, attrs)
+	-- results below
+		-- types: string, string, number, table
+		-- 255
+		-- [max] => 255
+		-- [step] => 1
+		-- [on_selection_functor] => table: 0x14d3a450 {
+		  -- [1] => function: 0x11e54bc0
+		  -- [2] => blue
+		-- }
+		-- [val] => 2
+		-- [type] => track
+		-- [min] => 0
+		-- [def] => 255
+		-- [id] => blue
+		--
+		-- better_upgrade_tooltips, blue, 255, table: 0x138f2410 
+	local channel = attrs.on_selection_functor[2]
+	colour_table_neg[channel] = value
+	set_text_colour_neg()
+end
+
+function register_text_neg(anchor, handlers, attrs, flags)
+	test_text_neg = xml:InitTextWnd("elements:desc", anchor)
+	test_text_neg:SetText("PREVIEW TEXT")
+	test_text_neg:SetWndPos(vector2():set(400, 0))
+	set_text_colour_neg()
+end
+
+function set_text_colour_neg()
+	local alpha = colour_table_neg.alpha or ui_mcm.get("better_upgrade_tooltips/alpha_neg") or 255
+	local red = colour_table_neg.red or ui_mcm.get("better_upgrade_tooltips/red_neg") or 255
+	local green = colour_table_neg.green or ui_mcm.get("better_upgrade_tooltips/green_neg") or 255
+	local blue = colour_table_neg.blue or ui_mcm.get("better_upgrade_tooltips/blue_neg") or 255
+	test_text_neg:SetTextColor(GetARGB(alpha, red, green, blue))
+end

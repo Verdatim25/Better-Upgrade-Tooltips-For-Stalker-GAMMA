@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+
+<string_table>
+
+	<string id="ui_upgrade_recoil">
+		<text>Recoil Control</text>
+	</string>
+	
+	<string id="ui_upgrade_bullet_speed">
+		<text>Muzzle Velocity</text>
+	</string>
+	
+	<string id="ui_upgrade_durability">
+		<text>Condition Loss</text>
+	</string>
+	
+</string_table>

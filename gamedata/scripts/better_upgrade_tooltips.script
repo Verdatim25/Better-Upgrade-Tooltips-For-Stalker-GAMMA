@@ -1,0 +1,1007 @@
+-- by verdatim
+
+local char_ini = ini_file("item_upgrades.ltx")
+
+local selected_obj_section = "wpn_pm"
+local selected_obj_id
+
+original_inv_upgrades_property_functor_a = inventory_upgrades.property_functor_a
+
+local function printf() end
+local function print_r() end
+
+-- utility functions
+
+function on_game_start()
+	load_mcm_values()
+	RegisterScriptCallback("on_option_change", load_mcm_values)
+end
+
+function load_mcm_values()
+	change_text_colour = ui_mcm.get("better_upgrade_tooltips/change_text_colour") or false
+	alpha = ui_mcm.get("better_upgrade_tooltips/alpha") or 255
+	local red = ui_mcm.get("better_upgrade_tooltips/red") or 255
+	local green = ui_mcm.get("better_upgrade_tooltips/green") or 255
+	local blue = ui_mcm.get("better_upgrade_tooltips/blue") or 255
+	override_colour = "%c" .. (string.format("[%s,%s,%s,%s]", alpha, red, green, blue))
+	override_colour_ARGB = GetARGB(alpha, red, green, blue)
+	
+	change_text_colour_neg = ui_mcm.get("better_upgrade_tooltips/change_text_colour_neg") or false
+	alpha_neg = ui_mcm.get("better_upgrade_tooltips/alpha_neg") or 255
+	local red_neg = ui_mcm.get("better_upgrade_tooltips/red_neg") or 255
+	local green_neg = ui_mcm.get("better_upgrade_tooltips/green_neg") or 255
+	local blue_neg = ui_mcm.get("better_upgrade_tooltips/blue_neg") or 255
+	override_colour_neg = "%c" .. (string.format("[%s,%s,%s,%s]", alpha_neg, red_neg, green_neg, blue_neg))
+	override_colour_neg_ARGB = GetARGB(alpha_neg, red_neg, green_neg, blue_neg)
+	
+end
+
+-- these next two are taken from utils_item but doesnt cache
+
+local param_special = {
+	["hit_power"]               = { typ= "string" , functor= item_vector_to_num },
+	["control_inertion_factor"] = { typ= "string" , functor= item_float_to_num },
+}
+
+local read_from_ini = utils_data.read_from_ini
+
+function get_param(section, id, param, typ, add)
+	printf("get_param | section: %s - id: %s - param: %s - type: %s - add: %s - upgrades table passed: %s", section, id, param, typ, add)
+	
+	-- Validate
+	if not (section and param) then
+		callstack()
+		printf("!ERROR utils_item.get_param | missing parameters")
+		return
+	end
+	
+	-- For ammo, use its own function
+	if param == "ammo_class" then
+		return get_ammo(section, id, false)
+	end
+	
+	-- Read section
+	local typ_t = typ 
+	typ = param_special[param] and param_special[param].typ or typ
+	
+	local value = read_from_ini(ini_sys, section, param, typ, nil)
+	if (value == nil) then
+		--printf("!ERROR itms_manager.get_item_param | param (%s) doesn't exist for [%s]", param, section)
+		return
+	end
+	if param_special[param] then
+		value = param_special[param].functor(value,0)
+	end
+	printf("get_param | section: %s - id: %s - param: %s | value in section: %s", section, id, param, value)
+
+	-- Read installed upgrades
+	local installed_upgr = id and utils_item.get_upgrades_installed(nil, id) or parse_list( ini_sys, section, "installed_upgrades")
+	for k,upgr in pairs(installed_upgr) do
+		local upgrade_sect = ini_sys:r_string_ex(upgr, "section")
+		local upgrade_value = utils_data.read_from_ini(ini_sys, upgrade_sect, param, typ, nil)
+		if (upgrade_value ~= nil) then
+			if param_special[param] then
+				upgrade_value = param_special[param].functor(upgrade_value,value)
+			end
+
+			if add and (typ_t == "float") then
+				value = value + upgrade_value
+			else
+				value = upgrade_value
+			end
+			printf("get_param | section: %s - id: %s - param: %s | found installed-upgrade [%s], adjusted value: %s", section, id, param, upgr, value)
+		end
+	end
+	
+	return value
+end
+
+function dispersion_change_to_accuracy_percent_change(change)
+	change = tonumber(change)
+	printf("change is %s", change)
+	local final = -(200/3 * change)
+	return final
+end
+
+function PDM_change_to_handling_percent_change(change)
+	change = tonumber(change)
+	printf("change is %s", change)
+	local final = -(5/21 * change) * 100
+	return final
+end
+
+function cond_shot_dec_to_relaibility_percent_change(change)
+	change = tonumber(change)
+	printf("change is %s", change)
+	local final = -10000*change
+	return final
+end
+
+local ini_eff = ini_file("plugins\\grok_bo_enhanced_recoil.ltx")
+function zoom_cam_disp_to_recoil_change(change, sec, selected_obj_id_arg_)
+	change = tonumber(change)
+	printf("change is %s", change)
+	-- turns out this stat is not created by a linear equation so i cant give a direct differentiation without involving the original stat
+
+	-- made for gamma mostly
+	--copied from momopate_weaponstats.script
+
+	local zoom_cam_dispersion = 0
+	local zoom_cam_dispersion_inc = 0
+	local recoil_s = 0
+	local recoil_s_cnt = 0
+	local recoil_e = 0
+	local disp_factor = 0
+	local enhanced_cam_factor = 0
+	local max_recoil_to_normalize = 0.036036
+	
+
+	
+	local sec_p = ini_sys:r_string_ex(sec, "parent_section") or sec
+	local tbl = {}
+	
+	if not ini_eff:section_exist(sec_p) then
+		printf("!!! no effects exist for %s", sec_p)
+		return 0 												-- Safeguard to prevent crashes!
+	end
+	
+	-- Literally just copy-pasted from grok_bo_enhanced_recoil.script
+	tbl.s = {}
+	local s = ini_eff:r_string_ex(sec_p,"s")
+	local _s = str_explode(s,",")
+	for i=1,#_s do
+		tbl.s[#tbl.s + 1] = tonumber(_s[i])
+	end
+	
+	tbl.e = {}
+	local e = ini_eff:r_string_ex(sec_p,"e")
+	local _e = str_explode(e,",")
+	for i=1,#_e do
+		local __e = str_explode(_e[i],":")
+		for j=1,#__e do
+			if (tonumber(__e[j]) > 0) then 
+				tbl.e[#tbl.e + 1] = tonumber(__e[j])
+			end
+		end
+		--tbl.e[#tbl.e + 1] = __e
+	end
+	
+	local zoom_cam_dispersion = get_param(sec, selected_obj_id_arg_, "zoom_cam_dispersion", "float", true) or 0 
+	local zoom_cam_dispersion_inc = get_param(sec, selected_obj_id_arg_, "zoom_cam_dispersion_inc", "float", true) or 0
+	
+	local final_zoom_cam_dispersion = zoom_cam_dispersion + change
+
+	for i = 1, #tbl.s do
+		recoil_s = recoil_s + tonumber(tbl.s[i])
+		recoil_s_cnt = recoil_s_cnt + 1
+	end
+	recoil_s = (recoil_s / recoil_s_cnt)
+
+	local recoil_e = tonumber(tbl.e[2]) or 1
+	
+	local disp_factor = 1 / ( zoom_cam_dispersion )
+	
+	local final_disp_factor = 1 / ( final_zoom_cam_dispersion )
+	
+	local enhanced_cam_factor = 1 / ( recoil_s + recoil_s + recoil_s + recoil_e )
+
+	printf("/// Recoil config: Disp = %s + %s / Cam = %s + %s", zoom_cam_dispersion, zoom_cam_dispersion_inc * 0.1, recoil_s, recoil_e)
+
+
+	final_recoil = ( disp_factor * enhanced_cam_factor ) * 100
+	if final_recoil < 1 then
+		final_recoil = 1
+	end
+	
+	final_recoil_post_upg = ( final_disp_factor * enhanced_cam_factor ) * 100
+	if final_recoil_post_upg < 1 then
+		final_recoil_post_upg = 1
+	end
+	
+	--printf("final_recoil is %s, final_recoil_post_upg is %s, section is %s, ververver", final_recoil, final_recoil_post_upg, sec)
+	-- return (final_recoil)
+
+	return final_recoil_post_upg - final_recoil
+end
+
+function cam_disp_to_recoil_change(change, sec, selected_obj_id_arg_)
+	change = tonumber(change)
+	printf("change is %s", change)
+	-- turns out this stat is not created by a linear equation so i cant give a direct differentiation without involving the original stat
+
+	-- made for gamma mostly
+	--copied from momopate_weaponstats.script
+
+	local zoom_cam_dispersion = 0
+	local zoom_cam_dispersion_inc = 0
+	local recoil_s = 0
+	local recoil_s_cnt = 0
+	local recoil_e = 0
+	local disp_factor = 0
+	local enhanced_cam_factor = 0
+	local max_recoil_to_normalize = 0.036036
+	
+
+	
+	local sec_p = ini_sys:r_string_ex(sec, "parent_section") or sec
+	local tbl = {}
+	
+	if not ini_eff:section_exist(sec_p) then
+		printf("!!! no effects exist for %s", sec_p)
+		return 0 												-- Safeguard to prevent crashes!
+	end
+	
+	-- Literally just copy-pasted from grok_bo_enhanced_recoil.script
+	tbl.s = {}
+	local s = ini_eff:r_string_ex(sec_p,"s")
+	local _s = str_explode(s,",")
+	for i=1,#_s do
+		tbl.s[#tbl.s + 1] = tonumber(_s[i])
+	end
+	
+	tbl.e = {}
+	local e = ini_eff:r_string_ex(sec_p,"e")
+	local _e = str_explode(e,",")
+	for i=1,#_e do
+		local __e = str_explode(_e[i],":")
+		for j=1,#__e do
+			if (tonumber(__e[j]) > 0) then 
+				tbl.e[#tbl.e + 1] = tonumber(__e[j])
+			end
+		end
+		--tbl.e[#tbl.e + 1] = __e
+	end
+	
+	local cam_dispersion = get_param(sec, selected_obj_id_arg_, "cam_dispersion", "float", true) or 0 
+	local zoom_cam_dispersion_inc = get_param(sec, selected_obj_id_arg_, "zoom_cam_dispersion_inc", "float", true) or 0
+	
+	local final_zoom_cam_dispersion = cam_dispersion + change
+
+	for i = 1, #tbl.s do
+		recoil_s = recoil_s + tonumber(tbl.s[i])
+		recoil_s_cnt = recoil_s_cnt + 1
+	end
+	recoil_s = (recoil_s / recoil_s_cnt)
+
+	local recoil_e = tonumber(tbl.e[2]) or 1
+	
+	local disp_factor = 1 / (cam_dispersion)
+	
+	local final_disp_factor = 1 / ( final_zoom_cam_dispersion )
+	
+	local enhanced_cam_factor = 1 / ( recoil_s + recoil_s + recoil_s + recoil_e )
+
+	printf("/// Recoil config: Disp = %s + %s / Cam = %s + %s", zoom_cam_dispersion, zoom_cam_dispersion_inc * 0.1, recoil_s, recoil_e)
+
+
+	final_recoil = ( disp_factor * enhanced_cam_factor ) * 100
+	if final_recoil < 1 then
+		final_recoil = 1
+	end
+	
+	final_recoil_post_upg = ( final_disp_factor * enhanced_cam_factor ) * 100
+	if final_recoil_post_upg < 1 then
+		final_recoil_post_upg = 1
+	end
+	
+	--printf("final_recoil is %s, final_recoil_post_upg is %s, section is %s, ververver", final_recoil, final_recoil_post_upg, sec)
+	-- return (final_recoil)
+
+	return math.abs(final_recoil_post_upg - final_recoil)
+end
+
+function rpm_to_rpm(change)
+	change = tonumber(change)
+	printf("change is %s", change)
+	return change
+end
+
+function momo_bullet_speed_function(change, sec, obj_id)
+	local obj = get_object_by_id(obj_id)
+	if obj then
+		local cobj = obj:cast_Weapon()
+		if (not cobj) then 
+			return 0 
+		end
+		local id = obj and obj:id()
+		local bullet_speed = get_param(sec, obj and obj:id(), "bullet_speed", "float", true) + change
+		local ammo_list = utils_item.get_ammo(obj:section(), id)
+		if ammo_list[1] then
+			local k_bullet_speed = ini_sys:r_float_ex(ammo_list[1], "k_bullet_speed") or 1
+			bullet_speed = (bullet_speed ~= 0) and (k_bullet_speed*bullet_speed) or k_bullet_speed
+			bullet_speed = bullet_speed * 0.70
+		end
+		return normalize(bullet_speed, 0, 1000)
+	end
+end
+
+function bullet_speed_to_bullet_speed(change, sec, obj_id)
+	-- change = tonumber(change)
+	-- printf("change is %s", change)
+	-- return change
+	local original_speed = momo_bullet_speed_function(0, sec, obj_id) or 0
+	
+	local new_speed = momo_bullet_speed_function(change, sec, obj_id) or original_speed
+	
+	_g.printf("%s, %s", original_speed, new_speed)
+	return 1000 * math.abs(new_speed - original_speed)
+end
+
+function weight_to_weight(change)
+	return change
+end
+
+-- the two below are form grok_actor_damage_balancer
+
+local math_ceil = function(num)
+	return math.ceil(num * 10) / 10
+end
+
+function get_adb_constants(st)
+	if st == hit.fire_wound or st == "FireWound" then
+		hit_type = HitTypeID["FireWound"]
+		immunity = "fire_wound_immunity"
+		protection = "FireWound"
+		booster_type_def = 15
+		adjuster = 0.80
+		arti_adjuster = adjuster
+		limiter = 0.65
+		cap_stat = "fire_wound_cap"
+		defense = "fire_wound_protection"
+	end
+
+	if st == hit.wound or st == "Wound" then
+		hit_type = HitTypeID["Wound"]
+		immunity = "wound_immunity"
+		protection = "Wound"
+		booster_type_def = 16
+		adjuster = 0.58 * 1.20
+		arti_adjuster = 0.58 * 2
+		limiter = 0.65
+		cap_stat = "wound_cap"
+		defense = "wound_protection"
+	end
+
+	if st == hit.strike or st == "Strike" then
+		hit_type = HitTypeID["Strike"]
+		immunity = "strike_immunity"
+		protection = "Strike"
+		booster_type_def = 14
+		adjuster = 0.55
+		arti_adjuster = adjuster * 1.3
+		limiter = 0.65
+		elemental = 1
+		cap_stat = "strike_cap"
+		defense = "strike_protection"
+	end
+
+	if st == hit.explosion or st == "Explosion" then
+		hit_type = HitTypeID["Explosion"]
+		immunity = "explosion_immunity"
+		protection = "Explosion"
+		booster_type_def = 13
+		adjuster = 0.45
+		arti_adjuster = 0.675
+		limiter = 0.65
+		elemental = 1
+		cap_stat = "explosion_cap"
+		defense = "explosion_protection"
+	end
+
+	if st == hit.burn or st == "Burn" then
+		hit_type = HitTypeID["Burn"]
+		immunity = "burn_immunity"
+		protection = "Burn"
+		booster_type_def = 8
+		adjuster = 1.00
+		arti_adjuster = adjuster * 2.0
+		limiter = 0.65
+		elemental = 1
+		cap_stat = "burn_cap"
+		defense = "burn_protection"
+	end
+
+	if st == hit.light_burn or st == "Burn" then
+		hit_type = HitTypeID["LightBurn"]
+		immunity = "burn_immunity"
+		protection = "Burn"
+		booster_type_def = 8
+		adjuster = 1.00
+		arti_adjuster = adjuster * 2.0
+		limiter = 0.65
+		elemental = 1
+		cap_stat = "burn_cap"
+		defense = "burn_protection"
+	end
+
+	if st == hit.shock or st == "Shock" then
+		hit_type = HitTypeID["Shock"]
+		immunity = "shock_immunity"
+		protection = "Shock"
+		booster_type_def = 9
+		adjuster = 0.102
+		arti_adjuster = adjuster * 26.5
+		limiter = 0.65
+		elemental = 1
+		cap_stat = "shock_cap"
+		defense = "shock_protection"
+	end
+
+	if st == hit.chemical_burn or st == "ChemicalBurn" then
+		hit_type = HitTypeID["ChemicalBurn"]
+		immunity = "chemical_burn_immunity"
+		protection = "ChemicalBurn"
+		booster_type_def = 7
+		adjuster = 1.32
+		arti_adjuster = adjuster
+		limiter = 0.65
+		elemental = 1
+		cap_stat = "chemical_burn_cap"
+		defense = "chemical_burn_protection"
+	end
+
+--	if st == hit.radiation or st == "Radiation" then
+--		hit_type = HitTypeID["Radiation"]
+--		immunity = "radiation_immunity"
+--		protection = "Radiation"
+--		booster_type_def = 10
+--		adjuster = 0.80
+--		limiter = 1.00
+--	end
+
+	if st == hit.telepatic or st == "Telepatic" then
+		hit_type = HitTypeID["Telepatic"]
+		immunity = "telepatic_immunity"
+		protection = "telepatic"
+		booster_type_def = 6
+		adjuster = 1.70
+		arti_adjuster = 1.50
+		limiter = 0.65
+		elemental = 1
+		psy = 1
+		cap_stat = "telepatic_cap"
+		defense = "telepatic_protection"
+	end
+end
+
+function get_outfit_value(obj, sec, name, def, add)
+	local outfit = IsOutfit(obj)
+	local helmet = IsHeadgear(obj)
+
+	total_prot = 0
+	headshot = 0
+	elemental = 0
+	psy = 0
+	adjuster = 1.00
+
+	get_adb_constants(name)
+
+	-- Outfit protection
+	local armor_protection = 0
+	local armor_bone_value = 0
+
+	if obj and outfit then
+		local cond = obj:condition()
+		local c_outfit = obj:cast_CustomOutfit()
+		if (c_outfit) then
+			if protection == "FireWound" then
+				armor_protection = math_ceil((c_outfit:GetBoneArmor( BoneID["bip01_spine"] ) + add) * adjuster *100) or 0
+			else
+				armor_protection = math_ceil((c_outfit:GetDefHitTypeProtection( hit_type ) + add) * adjuster *100 * 1/cond) or 0
+			end
+			return armor_protection
+		end
+	end
+
+	-- Helmet protection
+	local helmet_protection = 0
+	local helmet_bone_value = 0
+    if obj and helmet then
+		local cond = obj:condition()
+		local c_helmet = obj:cast_Helmet()
+		if (c_helmet) then
+			if protection == "FireWound" then
+				helmet_protection = math_ceil((c_helmet:GetBoneArmor( BoneID["bip01_head"] ) + add) * adjuster *100) or 0
+			else
+				helmet_protection = math_ceil((c_helmet:GetDefHitTypeProtection( hit_type ) + add) * adjuster *100 * 1/cond) or 0
+			end
+			return helmet_protection
+		end
+	end
+
+	if sec then
+		if protection == "FireWound" then
+			section_protection = math_ceil((SYS_GetParam(0,sec,"hit_fraction_actor") + add) * adjuster *100) or 0
+		else
+			section_protection = math_ceil((SYS_GetParam(0,sec, defense) + add) * adjuster *100) or 0
+		end
+
+		return section_protection
+	end
+end
+
+function outfit_protection_to_percent_change(change, section, obj_id, identifier)
+
+	local obj = get_object_by_id(obj_id)
+	if not obj then return end
+	
+	local old_protection = get_outfit_value(obj, section, identifier, nil, 0)
+	
+	local new_protection = get_outfit_value(obj, section, identifier, nil, change)
+	printf("new is %s, old is %s", new_protection, old_protection)
+	return math.abs(new_protection - old_protection)
+end
+
+function shock_protection_to_percent_change(change, section, obj_id)
+	return outfit_protection_to_percent_change(change, section, obj_id, "Shock")
+end
+
+function burn_protection_to_percent_change(change, section, obj_id)
+	return outfit_protection_to_percent_change(change, section, obj_id, hit.burn)
+end
+
+function chemical_burn_protection_to_percent_change(change, section, obj_id)
+	return outfit_protection_to_percent_change(change, section, obj_id, "ChemicalBurn")
+end
+
+function telepatic_protection_to_percent_change(change, section, obj_id)
+	return outfit_protection_to_percent_change(change, section, obj_id, "Telepatic")
+end
+
+function wound_protection_to_percent_change(change, section, obj_id)
+	return outfit_protection_to_percent_change(change, section, obj_id, "Wound")
+end
+
+function bleeding_restore_speed_to_ml_per_s(change)
+	return change * 150000
+end
+
+function health_restore_speed_to_artefact_heal_percent(change)
+	return 10000 * change
+end
+
+function radiation_protection_to_percent_change(change, section, obj_id)
+	local obj = get_object_by_id(obj_id)
+	if not obj then return end
+	
+	local multiplier = (100/SYS_GetParam(2,"actor_condition","radio_zone_max_power")) / 1.82143
+	
+	local original_protection = utils_item.get_outfit_protection(obj, section, "Radiation") * multiplier
+	
+	local new_protection = (utils_item.get_outfit_protection(obj, section, "Radiation") + change) * multiplier
+
+	return math.abs(new_protection - original_protection)
+end
+
+function fire_wound_protection_to_percent_change(change, section, obj_id)
+	return outfit_protection_to_percent_change(change, section, obj_id, "FireWound")
+end
+
+function power_restore_speed_to_mircog(change)
+	return change * 100000
+end
+
+function durability_upgrade_to_condition_loss(change)
+	-- for gamma, each durability upgrade reduces condition loss by 10%
+	return (-10)
+end
+
+local prop_name_to_param = {
+-- weapons
+prop_dispersion = {param_name = {"fire_dispersion_base"}, functor = {"dispersion_change_to_accuracy_percent_change"}},
+prop_inertion = {param_name = {"PDM_disp_base"}, functor = {"PDM_change_to_handling_percent_change"}},
+prop_recoil = {param_name = {"zoom_cam_dispersion"}, functor = {"zoom_cam_disp_to_recoil_change"}},
+prop_reliability = {param_name = {"condition_shot_dec"}, functor = {"cond_shot_dec_to_relaibility_percent_change"}},
+prop_bullet_speed = {param_name = {"bullet_speed"}, functor = {"bullet_speed_to_bullet_speed"}},
+prop_rpm = {param_name = {"rpm"}, functor = {"rpm_to_rpm"}},
+prop_weight = {param_name = {"inv_weight"}, functor = {"weight_to_weight"}},
+
+-- outfits
+prop_electro = {param_name = {"shock_protection"}, functor = {"shock_protection_to_percent_change"}},
+prop_thermo = {param_name = {"burn_protection"}, functor = {"burn_protection_to_percent_change"}},
+prop_chem = {param_name = {"chemical_burn_protection"}, functor = {"chemical_burn_protection_to_percent_change"}},
+prop_psy = {param_name = {"telepatic_protection"}, functor = {"telepatic_protection_to_percent_change"}},
+prop_damage = {param_name = {"wound_protection"}, functor = {"wound_protection_to_percent_change"}},
+prop_restore_bleeding = {param_name = {"bleeding_restore_speed"}, functor = {"bleeding_restore_speed_to_ml_per_s"}},
+prop_restore_health = {param_name = {"health_restore_speed"}, functor = {"health_restore_speed_to_artefact_heal_percent"}},
+prop_radio = {param_name = {"radiation_protection"}, functor = {"radiation_protection_to_percent_change"}},
+prop_armor = {param_name = {"fire_wound_protection"}, functor = {"fire_wound_protection_to_percent_change"}},
+prop_power = {param_name = {"power_restore_speed"}, functor = {"power_restore_speed_to_mircog"}},
+prop_durability = {param_name = {"immunities_sect_add"}, functor = {"durability_upgrade_to_condition_loss"}}
+
+}
+
+local function is_special_param(name)
+	return (name == "prop_durability" or name == "prop_weight")
+end
+
+local param_to_prop_name = {
+-- weapons
+fire_dispersion_base = "prop_dispersion",
+PDM_disp_base = "prop_inertion",
+zoom_cam_dispersion = "prop_recoil",
+-- cam_dispersion = "prop_recoil",
+condition_shot_dec = "prop_reliability",
+bullet_speed = "prop_bullet_speed",
+rpm = "prop_rpm",
+inv_weight = "prop_weight",
+
+-- outfits
+shock_protection = "prop_electro",
+burn_protection = "prop_thermo",
+chemical_burn_protection = "prop_chem",
+telepatic_protection = "prop_psy",
+wound_protection = "prop_damage",
+bleeding_restore_speed = "prop_restore_bleeding",
+health_restore_speed = "prop_restore_health",
+radiation_protection = "prop_radio",
+fire_wound_protection = "prop_armor"
+}
+
+inventory_upgrades.property_functor_a = function(param1, name)
+	--printf("-property_functor_a(%s,%s)",param1,name)
+	_g.printf("function inventory_upgrades.property_functor_a called")
+	local prorerty_name = char_ini:r_string(name, "name")
+	
+	local t_prorerty_name = game.translate_string(prorerty_name)
+	-- make all the colours white for consistency
+	if string.find(t_prorerty_name, "%%c%[0,255,255,255%]") then
+		-- t_prorerty_name = "%c[0,255,255,255]" .. t_prorerty_name
+		t_prorerty_name = string.gsub(t_prorerty_name, "%%c%[0,255,255,255%]", "")
+	end
+	load_mcm_values()
+	local section_table = parse_names(param1)
+	local section_table_n = #section_table
+	local section = section_table[1]
+	
+	printf("%s,%s,%s", prorerty_name, section, name)
+	
+	if not prop_name_to_param[name] then
+		printf("returning original function because prorerty_name is %s", name)
+		local text = original_inv_upgrades_property_functor_a(param1, name)
+		if string.find(text, "%%c%[0,255,255,255%]") then
+			-- t_prorerty_name = "%c[0,255,255,255]" .. t_prorerty_name
+			text = string.gsub(text, "%%c%[0,255,255,255%]", "")
+		end
+		if change_text_colour then
+			return override_colour .. text
+		else
+			return text
+		end
+	end
+	
+	if(section_table_n==0) then
+		return ""
+	end
+	if	name=="prop_night_vision_1"		or
+		name=="prop_night_vision_2"		or
+		name=="prop_night_vision_3"		or
+		name=="prop_sprint"				or
+		name=="prop_scanner"			or
+		name=="prop_dozimeter"			or
+		name=="prop_psy_controller"		then
+			if change_text_colour then
+				return override_colour .. t_prorerty_name
+			else
+				return t_prorerty_name
+			end
+	end
+	local value = 0
+	local sum = 0
+	for i = 1,section_table_n do
+		-- if not(char_ini:line_exist(section_table[i], "value")) or not(char_ini:r_string(section_table[i], "value")) then
+		if (not(char_ini:line_exist(section_table[i], "value")) or not(char_ini:r_string(section_table[i], "value"))) and not prop_name_to_param[name] then
+			if change_text_colour then
+				return override_colour .. t_prorerty_name
+			else
+				return t_prorerty_name
+			end
+		end
+
+		local _i = 1
+		local stat_change
+		local final_functor_index
+		while not stat_change do
+			printf("_i is %s, prop_name_to_param[name].param_name[_i] is %s, stat_change is %s", _i, prop_name_to_param[name].param_name[_i], stat_change)
+			if prop_name_to_param[name].param_name[_i] == "fire_wound_protection" then
+				local bone_protection_section = char_ini:r_string_ex(section_table[i], "bones_koeff_protection_add")
+				local stat_changes = ini_sys:r_string_ex(bone_protection_section, "bip01_spine") or "0,0"
+				stat_change = str_explode(stat_changes, ",")[2]
+				printf("%s, %s, %s", bone_protection_section, stat_changes, stat_change)
+			else
+				stat_change = char_ini:r_string_ex(section_table[i], prop_name_to_param[name].param_name[_i] or "")
+			end
+			final_functor_index = _i
+			if not prop_name_to_param[name].param_name[_i] then
+				printf("stat %s is not defined! returning to original function", name)
+				local text = original_inv_upgrades_property_functor_a(param1, name)
+				if string.find(text, "%%c%[0,255,255,255%]") then
+					-- t_prorerty_name = "%c[0,255,255,255]" .. t_prorerty_name
+					text = string.gsub(text, "%%c%[0,255,255,255%]", "")
+				end
+				if change_text_colour then
+					return override_colour .. text
+				else
+					return text
+				end
+			end
+			_i = _i + 1
+		end
+		stat_change = stat_change or "0"
+		printf("selected_obj_section is %s", selected_obj_section)
+		local selected_obj_id_arg = selected_obj_id
+		local percent_change = better_upgrade_tooltips[prop_name_to_param[name].functor[final_functor_index]](stat_change, selected_obj_section or "wpn_pm", selected_obj_id_arg)
+		value = percent_change
+		
+		--value = math.floor((10*value)+0.5) / 10
+		
+		value = math.ceil(10*value) / 10
+		
+		if(name~="prop_night_vision") then
+			sum = sum + tonumber(value)
+		else
+			sum = tonumber(value)
+		end
+		
+	end
+	local is_positive = false
+	if(sum<0) then
+		value = sum
+	else
+		value = "+"..sum
+		is_positive = true
+	end
+	
+
+	good = ((is_positive) and (not is_special_param(name)) or ((not is_positive) and (is_special_param(name))))
+	
+	if change_text_colour then
+		if change_text_colour_neg then
+			if good then
+				t_prorerty_name = override_colour .. t_prorerty_name
+			else
+				t_prorerty_name = override_colour_neg .. t_prorerty_name
+			end
+		else
+			t_prorerty_name = override_colour .. t_prorerty_name
+		end
+	end
+	
+	if(name=="prop_ammo_size" or name=="prop_artefact") then
+		return t_prorerty_name.." "..value
+	--elseif(name=="prop_restore_bleeding" or name=="prop_restore_health" or name=="prop_power") then
+	elseif(name=="prop_restore_health") then
+		if(name=="prop_power") then
+			value = "+"..tonumber(value)*2
+		end
+ --		local str = string.format("%s %4.1f", t_prorerty_name, value)
+ --		return str
+		return t_prorerty_name.." "..value
+	-- elseif(name=="prop_tonnage" or name=="prop_weightoutfit" or name=="prop_weight") then
+	elseif(name=="prop_tonnage" or name=="prop_weightoutfit") then
+			local str = string.format("%s %5.2f %s", t_prorerty_name, value, game.translate_string("st_kg"))
+			return str
+	elseif(name=="prop_night_vision") then
+		if(tonumber(value)==1) then
+			return t_prorerty_name
+		else
+			return game.translate_string(prorerty_name.."_"..tonumber(value))
+		end
+	elseif(name=="prop_no_buck" or name=="prop_autofire") then
+
+		return t_prorerty_name
+	end
+	if	name=="prop_reliability"	or
+		--name=="prop_recoil"			or
+		name=="prop_dispersion"		or
+		--name=="prop_bullet_speed"	or
+		name=="prop_chem"			or
+		name=="prop_psy"			or
+		name=="prop_radio"			or
+		name=="prop_thermo"			or
+		name=="prop_electro"		or
+		name=="prop_damage"			or
+		name=="prop_armor"			or
+		--name=="prop_rpm"			or
+		name=="prop_durability"		or
+		name=="prop_inertion"		then
+			value = value.."%"
+	end
+	if name == "prop_bullet_speed" then
+		value = value .. " " .. game.translate_string("st_stat_speed")
+	elseif name == "prop_rpm" then
+		value = value .. " RPM"
+	end
+	
+	printf("value is %s", value)
+	
+	if name == "prop_weight" then
+		if tonumber(value) > 0 then
+			value = tostring(value) .. " " .. game.translate_string("st_kg")
+		else
+			value = tostring(value) .. " " .. game.translate_string("st_kg")
+		end
+	end
+	
+	if name == "prop_restore_bleeding" then
+		if tonumber(value) > 0 then
+			value = tostring(value) .. " " .. game.translate_string("st_ml_min")
+		else
+			value = tostring(value) .. " " .. game.translate_string("st_ml_min")
+		end
+	end
+	if name == "prop_power" then
+		if tonumber(value) > 0 then
+			value = tostring(value) .. " " .. game.translate_string("st_microg")
+		else
+			value = tostring(value) .. " " .. game.translate_string("st_microg")
+		end
+	end
+	
+	return t_prorerty_name.." "..value
+end
+
+local original_property_functor_b = inventory_upgrades.property_functor_b
+inventory_upgrades.property_functor_b = function( param1, name )
+	local original_return = original_property_functor_b( param1, name )
+	--printf("-property_functor_b(%s,%s)",param1,name)
+	if string.find(original_return, "%%c%[0,255,255,255%]") then
+		-- original_return = "%c[0,255,255,255]" .. original_return
+		original_return = string.gsub(original_return, "%%c%[0,255,255,255%]", "")
+	end
+	load_mcm_values()
+	if change_text_colour then
+		original_return = override_colour .. original_return
+	end
+	return original_return
+end
+
+local original_property_functor_c = inventory_upgrades.property_functor_c
+inventory_upgrades.property_functor_c = function( param1, name )
+	local original_return = original_property_functor_c( param1, name )
+	--printf("-property_functor_c(%s,%s)",param1,name)
+	if string.find(original_return, "%%c%[0,255,255,255%]") then
+		-- original_return = "%c[0,255,255,255]" .. original_return
+		original_return = string.gsub(original_return, "%%c%[0,255,255,255%]", "")
+	end
+	load_mcm_values()
+	if change_text_colour then
+		original_return = override_colour .. original_return
+	end
+	return original_return
+end
+
+utils_ui.parse_list = function(ini, key, val, convert)
+	local original_return_value = parse_list(ini, key, val, convert)
+	
+	if val ~= "property" then
+		return original_return_value
+	end
+
+	local upgrade_section = ini:r_string_ex(key, "section")
+	
+	local original_return_table = table.concat(original_return_value, ",")
+	_g.printf(" ver ver %s, %s", upgrade_section, original_return_table)
+	
+	for prop_name,v in pairs(prop_name_to_param) do
+		local _i = 0
+		local stat_change
+		while not stat_change do
+			_i = _i + 1
+			--printf("%s, %s", _i, v.param_name[_i])
+			if not v.param_name[_i] then
+				break
+			end
+			local temp = ini:r_string_ex(upgrade_section, v.param_name[_i])
+			if temp then
+				if tonumber(temp) ~= 0 then
+					stat_change = v.param_name[_i]
+				end
+			end
+		end
+		
+		local extra_prop_name = param_to_prop_name[stat_change]
+		if extra_prop_name then
+			if not string.find(original_return_table, extra_prop_name) then
+				original_return_table = original_return_table .. "," .. extra_prop_name
+				--printf("insert extra element %s, final table is %s", extra_prop_name, original_return_table)
+			else
+				--printf("original_return_table %s already contains extra_prop_name %s", original_return_table, extra_prop_name)
+			end
+		else
+			--printf("no extra prop name for %s", stat_change)
+		end
+	end
+	
+	-- move artefact slot increases to the end to avoide text overlap
+	local starts, ends = string.find(original_return_table, "prop_artefact")
+	if starts and ends then
+		original_return_table = string.sub(original_return_table, ends + 2)
+		original_return_table = original_return_table .. ",prop_artefact"
+		printf("inserted prop_artefact at the end of original_return_table, final result is %s", original_return_table)
+	end
+	
+	local final_return_value = str_explode(original_return_table, ",")
+	--print_r(final_return_value)
+	return final_return_value or original_return_value
+end
+
+local original_function_utils_ui_upgr_update = utils_ui.UIInfoUpgr.Update
+
+function utils_ui.UIInfoUpgr.Update(self, upgr, prereq, installed)
+	original_function_utils_ui_upgr_update(self, upgr, prereq, installed)
+	if not self:Pass(upgr) then
+		self:Show(false)
+		return
+	end
+
+	local props = utils_ui.parse_list(ini_sys, upgr, "property")
+	
+	for i=(#props + 1), 9 do
+		self.prop[i].ico:Show(false)
+		self.prop[i].txt:Show(false)
+	end
+	
+	self:Sync_H(self.prop_frame, self.frame, (self.prop_h * #props + 20) )
+	
+	for i,prop in ipairs(props) do
+		if change_text_colour then
+			if change_text_colour_neg then
+				if good then
+					self.prop[i].txt:SetTextColor(GetARGB(alpha,255,255,255))
+				else
+					self.prop[i].txt:SetTextColor(GetARGB(alpha_neg,255,255,255))
+				end
+			else
+				self.prop[i].txt:SetTextColor(GetARGB(alpha,255,255,255))
+			end
+		end
+			
+	end
+	
+	return
+end
+
+local original_function_OnCCMouse1_workshop = ui_workshop.UIWorkshopUpgrade.On_CC_Mouse1
+
+ui_workshop.UIWorkshopUpgrade.On_CC_Mouse1 = function(self, cont, idx)
+	original_function_OnCCMouse1_workshop(self, cont, idx)
+	local obj = self.CC:GetCell_Selected(true)
+	if (not obj) then
+		return
+	end
+	selected_obj_section = obj:section()
+	selected_obj_id = obj:id()
+end
+
+local original_function_itm_details_reset = ui_itm_details.UIItemSheet.Reset
+
+ui_itm_details.UIItemSheet.Reset = function(self, obj)
+	original_function_itm_details_reset(self, obj)
+	
+	if obj then
+		selected_obj_section = obj:section()
+		selected_obj_id = obj:id()
+	end
+end
+
+-- normally the max number of properties shown is 5, due to the multiple values that this script allows, i need to set the max number higher to catch some edge cases, like bizon caliber conversion
+
+local original_UIInfoUpgr_init_controls = utils_ui.UIInfoUpgr.InitControls
+
+local XMLP = CScriptXmlInit()
+XMLP:ParseFile("utils.xml")
+
+utils_ui.UIInfoUpgr.InitControls = function(self)
+	original_UIInfoUpgr_init_controls(self)
+	for i=6,9 do
+		self.prop[i] = {}
+		self.prop[i].ico = XMLP:InitStatic("upgrade_info:properties:icon", self.prop_frame)
+		pos = self.prop[i].ico:GetWndPos()
+		self.prop[i].ico:SetWndPos(vector2():set( pos.x , pos.y + (self.prop_h * i) ))
+
+		self.prop[i].txt = XMLP:InitTextWnd("upgrade_info:properties:txt", self.prop_frame)
+		pos = self.prop[i].txt:GetWndPos()
+		self.prop[i].txt:SetWndPos(vector2():set( pos.x , pos.y + (self.prop_h * i) ))
+	end
+end
