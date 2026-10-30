@@ -10,7 +10,7 @@ script_name = "better_upgrade_tooltips"
 
 original_inv_upgrades_property_functor_a = inventory_upgrades.property_functor_a
 
--- local function printf() end
+local function printf() end
 local function print_r() end
 
 -- utility functions
