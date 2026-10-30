@@ -8,7 +8,13 @@
 	<string id="ui_mcm_menu_better_upgrade_tooltips_title">
 		<text>Better Upgrade Tooltips</text>
 	</string>
-	
+
+	<string id="ui_mcm_better_upgrade_tooltips_show_hip_recoil_control">
+		<text>Show Hip Recoil Control</text>
+	</string>
+	<string id="ui_mcm_better_upgrade_tooltips_show_hip_recoil_control_desc">
+		<text>In some cases, guns increase 'hipfire' recoil control and not ADS recoil control during recoil upgrades, with this on, it will show the 'hipfire' recoil control increase vs showing nothing.</text>
+	</string>
 	
 	<string id="ui_mcm_better_upgrade_tooltips_change_text_colour">
 		<text>Change Upgrade Text Colour</text>

@@ -4,6 +4,8 @@ function on_mcm_load()
       {
         { id = "better_upgrade_tooltips_title", type = "slide", text = "ui_mcm_menu_better_upgrade_tooltips_title", link = "ui_options_slider_player", size = {512, 50}, spacing = 20 },
 		
+		{ id = "show_hip_recoil_control", type = "check", val = 1, def = true},
+		
 		{ id = "change_text_colour", type = "check", val = 1, def = true, ui_hook_functor = {better_upgrade_tooltips_mcm.register_text}},
 		{ id = "alpha", type = "track", val = 2, def = 255, min = 0, max = 255, step = 1, on_selection_functor = {better_upgrade_tooltips_mcm.on_channel_change, "alpha"}},
 		{ id = "red", type = "track", val = 2, def = 65, min = 0, max = 255, step = 1, on_selection_functor = {better_upgrade_tooltips_mcm.on_channel_change, "red"}},

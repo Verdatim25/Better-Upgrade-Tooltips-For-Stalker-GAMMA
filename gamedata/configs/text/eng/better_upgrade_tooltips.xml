@@ -5,7 +5,10 @@
 	<string id="ui_upgrade_recoil">
 		<text>Recoil Control</text>
 	</string>
-	
+	<string id="ui_upgrade_hip_recoil">
+		<text>Hip Recoil Control</text>
+	</string>
+		
 	<string id="ui_upgrade_bullet_speed">
 		<text>Muzzle Velocity</text>
 	</string>
@@ -16,6 +19,10 @@
 	
 	<string id="ui_upgrade_mag_size">
 		<text>Mag Size</text>
+	</string>
+	
+		<string id="ui_upgrade_final">
+		<text>Final</text>
 	</string>
 	
 </string_table>
