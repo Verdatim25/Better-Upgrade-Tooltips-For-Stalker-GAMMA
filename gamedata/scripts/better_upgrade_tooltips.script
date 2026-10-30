@@ -2,14 +2,15 @@
 
 local char_ini = ini_file("item_upgrades.ltx")
 
-local selected_obj_section = "wpn_pm"
-local selected_obj_id
+selected_obj_section = "wpn_pm"
+selected_obj_id = nil
 
 local _final_string = "ui_upgrade_final"
+script_name = "better_upgrade_tooltips"
 
 original_inv_upgrades_property_functor_a = inventory_upgrades.property_functor_a
 
-local function printf() end
+-- local function printf() end
 local function print_r() end
 
 -- utility functions
@@ -185,7 +186,7 @@ function PDM_change_to_handling_percent_change(change, sec, obj_id)
 	local old_PDM_disp_base = get_param(sec, obj_id, "PDM_disp_base", "float", true)
 	if old_PDM_disp_base then
 		local new_PDM_disp_base = old_PDM_disp_base + change
-		_g.printf("old_PDM_disp_base is %s, new_PDM_disp_base is %s, change is %s", old_PDM_disp_base, new_PDM_disp_base, change)
+		printf("old_PDM_disp_base is %s, new_PDM_disp_base is %s, change is %s", old_PDM_disp_base, new_PDM_disp_base, change)
 		local control_inertion_factor = 1
 		return -(5/21 * change) * 100, (normalize_100(new_PDM_disp_base, 2.1, 0) + normalize_100(control_inertion_factor, 3, 1))/2
 	end
@@ -414,7 +415,7 @@ function bullet_speed_to_bullet_speed(change, sec, obj_id)
 	
 	local new_speed = momo_bullet_speed_function(change, sec, obj_id) or original_speed
 	
-	_g.printf("%s, %s", original_speed, new_speed)
+	printf("%s, %s", original_speed, new_speed)
 	return math.ceil((1000 * math.abs(new_speed - original_speed))), math.ceil(1000 * new_speed)
 end
 
@@ -717,7 +718,7 @@ end
 
 function ammo_mag_size_to_ammo_mag_size(change, section, obj_id)
 	local old_ammo_mag_size = get_param(section, obj_id, "ammo_mag_size", "float", true)
-	_g.printf("old_ammo_mag_size is %s, chang is %s", old_ammo_mag_size, change)
+	printf("old_ammo_mag_size is %s, chang is %s", old_ammo_mag_size, change)
 	if old_ammo_mag_size then
 		local new_ammo_mag_size = old_ammo_mag_size + change
 		return change, new_ammo_mag_size
@@ -753,7 +754,7 @@ function artefact_count_to_artefact_count(change, section, obj_id)
 end
 
 inventory_upgrades.property_functor_a = function(param1, name)
-	_g.printf("-property_functor_a(%s,%s)",param1,name)
+	printf("-property_functor_a(%s,%s)",param1,name)
 	printf("function inventory_upgrades.property_functor_a called")
 	local prorerty_name = char_ini:r_string(name, "name")
 	
@@ -846,7 +847,7 @@ inventory_upgrades.property_functor_a = function(param1, name)
 		printf("selected_obj_section is %s", selected_obj_section)
 		local selected_obj_id_arg = selected_obj_id
 		local percent_change
-		percent_change, final = better_upgrade_tooltips[prop_name_to_param[name].functor[final_functor_index]](stat_change, selected_obj_section or "wpn_pm", selected_obj_id_arg)
+		percent_change, final = _G[script_name][prop_name_to_param[name].functor[final_functor_index]](stat_change, selected_obj_section or "wpn_pm", selected_obj_id_arg)
 		local obj = get_object_by_id(selected_obj_id_arg)
 		local upg_name = string.gsub(param1, "_sect", "")
 		if obj and obj:has_upgrade(upg_name) then
@@ -857,9 +858,9 @@ inventory_upgrades.property_functor_a = function(param1, name)
 				tbl[#tbl+1] = string1
 			end
 			obj:iterate_installed_upgrades(it)
-			_g.printf("obj does not have upgrade %s, obj has these upgrades: %s", upg_name, table.concat(tbl, ", "))
+			printf("obj does not have upgrade %s, obj has these upgrades: %s", upg_name, table.concat(tbl, ", "))
 		end
-		_g.printf("final is %s", final)
+		printf("final is %s", final)
 		value = percent_change
 		
 		--value = math.floor((10*value)+0.5) / 10
@@ -1080,7 +1081,11 @@ property_parse = function(ini, key, val, convert)
 	local starts, ends = string.find(original_return_table, "prop_artefact")
 	if starts and ends then
 		original_return_table = string.sub(original_return_table, ends + 2)
-		original_return_table = original_return_table .. ",prop_artefact"
+		if original_return_table == "" then
+			original_return_table = "prop_artefact"
+		else
+			original_return_table = original_return_table .. ",prop_artefact"
+		end
 		printf("inserted prop_artefact at the end of original_return_table, final result is %s", original_return_table)
 	end
 	
